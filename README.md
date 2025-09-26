@@ -36,16 +36,24 @@ pip install -r requirements.txt
 ## Quick Start 🚀
 
 ### 1. Setup
-First, set your OpenAI API key:
+First, set your LLM provider API key:
 
-**Windows:**
+**For OpenAI GPT models:**
 ```cmd
-set OPENAI_API_KEY=your_openai_api_key_here
+set API_KEY=sk-proj-your_openai_key_here
+set LLM_MODEL=gpt-3.5-turbo
 ```
 
-**Linux/Mac:**
-```bash
-export OPENAI_API_KEY=your_openai_api_key_here
+**For Google Gemini models:**
+```cmd
+set API_KEY=AIzaSy_your_google_key_here
+set LLM_MODEL=gemini-2.5-flash
+```
+
+**For Anthropic Claude models:**
+```cmd
+set API_KEY=sk-ant-your_anthropic_key_here
+set LLM_MODEL=claude-3-sonnet-20240229
 ```
 
 Run the setup command:
@@ -151,8 +159,13 @@ CoverLetterGenerator/
 ## Configuration ⚙️
 
 ### Environment Variables
-- `OPENAI_API_KEY`: Your OpenAI API key (required)
-- `OPENAI_MODEL`: Model to use (default: gpt-3.5-turbo)
+- `API_KEY`: Your LLM provider API key (required)
+- `LLM_MODEL`: Model to use (supports OpenAI, Google, Anthropic models)
+
+### Supported LLM Providers
+- **OpenAI**: `gpt-3.5-turbo`, `gpt-4`, etc.
+- **Google Gemini**: `gemini-pro`, `gemini-2.5-flash`, etc.  
+- **Anthropic Claude**: `claude-3-sonnet-20240229`, etc.
 
 ### File Locations
 - Templates: `templates/cover_letter_template.txt`

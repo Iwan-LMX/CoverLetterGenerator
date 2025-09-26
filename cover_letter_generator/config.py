@@ -47,7 +47,7 @@ class Settings:
     def validate_config(cls):
         """Validate that required configuration is present."""
         if cls.API_KEY == "your_api_key_here":
-            raise ValueError("Please set your OPENAI_API_KEY environment variable")
+            raise ValueError("Please set your API_KEY environment variable")
         
         if not cls.TEMPLATE_PATH.exists():
             raise FileNotFoundError(f"Template file not found: {cls.TEMPLATE_PATH}")
