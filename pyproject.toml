@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cover-letter-generator"
+version = "0.1.0"
+description = "AI-powered cover letter generation from job postings"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [
+    {name = "Your Name", email = "your.email@example.com"},
+]
+keywords = ["ai", "cover letter", "job application", "automation", "openai"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: End Users/Desktop",
+    "Topic :: Office/Business",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+dependencies = [
+    "openai>=1.0.0",
+    "requests>=2.25.0",
+    "beautifulsoup4>=4.9.0",
+    "lxml>=4.6.0",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/yourusername/cover-letter-generator"
+"Bug Reports" = "https://github.com/yourusername/cover-letter-generator/issues"
+"Source" = "https://github.com/yourusername/cover-letter-generator"
+
+[project.scripts]
+cover-letter-gen = "cover_letter_generator.cli:main"
+
+[tool.setuptools.packages.find]
+exclude = ["tests*"]
+
+[tool.setuptools.package-data]
+cover_letter_generator = ["../templates/*.txt"]
