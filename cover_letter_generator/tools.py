@@ -380,3 +380,111 @@ Sincerely,
         
         template_path.parent.mkdir(parents=True, exist_ok=True)
         template_path.write_text(default_template, encoding='utf-8')
+    
+    @staticmethod
+    def parse_resume_file(file_path: Path) -> str:
+        """Parse resume from various file formats.
+        
+        Args:
+            file_path: Path to the resume file
+            
+        Returns:
+            Extracted text content from the resume
+            
+        Raises:
+            ValueError: If file format is not supported
+            FileNotFoundError: If file doesn't exist
+        """
+        if not file_path.exists():
+            raise FileNotFoundError(f"Resume file not found: {file_path}")
+        
+        file_extension = file_path.suffix.lower()
+        
+        try:
+            if file_extension == '.pdf':
+                return FileHandler._extract_text_from_pdf(file_path)
+            elif file_extension == '.docx':
+                return FileHandler._extract_text_from_docx(file_path)
+            elif file_extension in ['.txt', '.md']:
+                return file_path.read_text(encoding='utf-8')
+            else:
+                raise ValueError(f"Unsupported file format: {file_extension}. Supported formats: .pdf, .docx, .txt, .md")
+                
+        except Exception as e:
+            raise Exception(f"Error parsing resume file {file_path}: {str(e)}")
+    
+    @staticmethod
+    def _extract_text_from_pdf(pdf_path: Path) -> str:
+        """Extract text from PDF file."""
+        try:
+            import PyPDF2
+            
+            text = ""
+            with open(pdf_path, 'rb') as file:
+                pdf_reader = PyPDF2.PdfReader(file)
+                
+                for page in pdf_reader.pages:
+                    page_text = page.extract_text()
+                    if page_text:
+                        text += page_text + "\n"
+            
+            if not text.strip():
+                raise Exception("No text could be extracted from the PDF. The PDF might be image-based or encrypted.")
+            
+            return text.strip()
+            
+        except ImportError:
+            raise Exception("PyPDF2 is required to read PDF files. Install it with: pip install PyPDF2")
+        except Exception as e:
+            # Try alternative PDF parsing method
+            try:
+                return FileHandler._extract_text_from_pdf_alternative(pdf_path)
+            except:
+                raise Exception(f"Could not extract text from PDF: {str(e)}")
+    
+    @staticmethod
+    def _extract_text_from_pdf_alternative(pdf_path: Path) -> str:
+        """Alternative PDF text extraction using pdfplumber (if available)."""
+        try:
+            import pdfplumber
+            
+            text = ""
+            with pdfplumber.open(pdf_path) as pdf:
+                for page in pdf.pages:
+                    page_text = page.extract_text()
+                    if page_text:
+                        text += page_text + "\n"
+            
+            return text.strip()
+            
+        except ImportError:
+            raise Exception("Could not extract text from PDF. Install pdfplumber for better PDF support: pip install pdfplumber")
+    
+    @staticmethod
+    def _extract_text_from_docx(docx_path: Path) -> str:
+        """Extract text from DOCX file."""
+        try:
+            from docx import Document
+            
+            doc = Document(docx_path)
+            text = ""
+            
+            for paragraph in doc.paragraphs:
+                text += paragraph.text + "\n"
+            
+            # Also extract text from tables
+            for table in doc.tables:
+                for row in table.rows:
+                    for cell in row.cells:
+                        text += cell.text + " "
+                    text += "\n"
+            
+            if not text.strip():
+                raise Exception("No text found in the DOCX file.")
+            
+            return text.strip()
+            
+        except ImportError:
+            raise Exception("python-docx is required to read DOCX files. Install it with: pip install python-docx")
+        except Exception as e:
+            raise Exception(f"Could not extract text from DOCX file: {str(e)}")

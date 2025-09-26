@@ -132,3 +132,5 @@ dmypy.json
 output/*.txt
 !output/.gitkeep
 *.log
+
+resumes/

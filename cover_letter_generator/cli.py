@@ -20,14 +20,14 @@ def main():
     # Generate from URL command
     url_parser = subparsers.add_parser('url', help='Generate from job posting URL')
     url_parser.add_argument('job_url', help='URL of the job posting')
-    url_parser.add_argument('--resume', '-r', help='Path to resume file')
+    url_parser.add_argument('--resume', '-r', help='Path to resume file (PDF, DOCX, TXT, MD)')
     url_parser.add_argument('--resume-text', help='Resume text (if no file)')
     url_parser.add_argument('--output', '-o', help='Output filename')
     
     # Generate from text command
     text_parser = subparsers.add_parser('text', help='Generate from job description text')
     text_parser.add_argument('job_file', help='File containing job description')
-    text_parser.add_argument('--resume', '-r', help='Path to resume file')
+    text_parser.add_argument('--resume', '-r', help='Path to resume file (PDF, DOCX, TXT, MD)')
     text_parser.add_argument('--resume-text', help='Resume text (if no file)')
     text_parser.add_argument('--company', help='Company name')
     text_parser.add_argument('--position', help='Position title')
@@ -131,13 +131,28 @@ def get_resume_info(args) -> str:
         resume_path = Path(args.resume)
         if not resume_path.exists():
             raise FileNotFoundError(f"Resume file not found: {args.resume}")
-        return resume_path.read_text(encoding='utf-8')
+        
+        # Import FileHandler here to use the resume parser
+        from .tools import FileHandler
+        
+        print(f"📄 Parsing resume file: {resume_path.name}")
+        
+        # Parse the resume file (supports PDF, DOCX, TXT, MD)
+        try:
+            resume_content = FileHandler.parse_resume_file(resume_path)
+            print(f"✅ Successfully extracted {len(resume_content)} characters from resume")
+            return resume_content
+        except Exception as e:
+            print(f"⚠️  Error parsing resume file: {str(e)}")
+            print("💡 Tip: Make sure your resume is in PDF, DOCX, TXT, or MD format")
+            raise
     
     elif args.resume_text:
         return args.resume_text
     
     else:
         print("Please provide either --resume (file path) or --resume-text")
+        print("Supported resume formats: PDF (.pdf), Word (.docx), Text (.txt), Markdown (.md)")
         resume_text = input("Enter your resume/background information:\n")
         return resume_text
 

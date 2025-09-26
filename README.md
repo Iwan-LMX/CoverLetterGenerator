@@ -6,7 +6,8 @@ An AI-powered tool that automatically generates professional cover letters from 
 
 - 🔗 **URL Scraping**: Extract job details directly from job posting URLs
 - 🤖 **AI Generation**: Create tailored cover letters using OpenAI's GPT models  
-- 📝 **Text Input**: Generate from job description text if you don't have a URL
+- � **Multi-Format Resume**: Support PDF, Word (.docx), text, and markdown resumes
+- �📝 **Text Input**: Generate from job description text if you don't have a URL
 - 💾 **File Management**: Automatic saving with timestamps
 - 🔧 **CLI Interface**: Easy-to-use command line interface
 - 📦 **Pip Installable**: Can be installed as a Python package
@@ -66,14 +67,29 @@ cover-letter-gen text job_description.txt --resume resume.txt --company "Tech Co
 
 ### Command Line Interface
 
-#### Generate from URL with resume file:
+#### Generate from URL with PDF resume:
 ```bash
 cover-letter-gen url "https://careers.company.com/job/123" \
-  --resume my_resume.txt \
+  --resume my_resume.pdf \
+  --output my_cover_letter.txt
+```
+
+#### Generate with Word document resume:
+```bash
+cover-letter-gen url "https://careers.company.com/job/123" \
+  --resume my_resume.docx \
   --output my_cover_letter.txt
 ```
 
 #### Generate from job description text:
+```bash
+cover-letter-gen text job_posting.txt \
+  --resume my_resume.pdf \
+  --company "Amazing Corp" \
+  --position "Senior Developer"
+```
+
+#### Generate with resume text (no file):
 ```bash
 cover-letter-gen text job_posting.txt \
   --resume-text "I am a software engineer with 5 years experience..." \
@@ -142,14 +158,25 @@ CoverLetterGenerator/
 - Templates: `templates/cover_letter_template.txt`
 - Output: `output/` directory (created automatically)
 
+## Supported Resume Formats 📄
+
+The agent can automatically parse resumes in multiple formats:
+- **PDF** (.pdf) - Most common format
+- **Word Documents** (.docx) - Microsoft Word files
+- **Text Files** (.txt) - Plain text resumes
+- **Markdown** (.md) - Formatted text files
+
+The parser automatically extracts text content from these files, making it easy to use your existing resume without conversion.
+
 ## Supported Job Sites 🌐
 
 The web scraper works with most job posting sites including:
 - LinkedIn Jobs
 - Indeed
 - Glassdoor
+- Workable (job application sites)
 - Company career pages
-- Any site with standard HTML job postings
+- Any site with standard HTML job postings or structured data
 
 ## Development 🛠️
 
