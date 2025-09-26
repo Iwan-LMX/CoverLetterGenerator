@@ -15,7 +15,7 @@ An AI-powered tool that automatically generates professional cover letters from 
 
 ### Option 1: Install from source
 ```bash
-git clone https://github.com/yourusername/CoverLetterGenerator.git
+git clone https://github.com/Iwan-LMX/CoverLetterGenerator.git
 cd CoverLetterGenerator
 pip install -e .
 ```
@@ -27,7 +27,7 @@ pip install cover-letter-generator
 
 ### Option 3: Development setup
 ```bash
-git clone https://github.com/yourusername/CoverLetterGenerator.git
+git clone https://github.com/Iwan-LMX/CoverLetterGenerator.git
 cd CoverLetterGenerator
 pip install -r requirements.txt
 ```

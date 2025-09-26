@@ -62,10 +62,7 @@ def main():
 def setup_config():
     """Interactive setup for configuration."""
     print("🔧 Setting up Cover Letter Generator...")
-    print("\nPlease set your OpenAI API key as an environment variable:")
-    print("Windows: set OPENAI_API_KEY=your_key_here")
-    print("Linux/Mac: export OPENAI_API_KEY=your_key_here")
-    
+
     print(f"\nTemplate will be created at: {Settings.TEMPLATE_PATH}")
     print(f"Output files will be saved to: {Settings.OUTPUT_DIR}")
     
@@ -93,7 +90,7 @@ def preview_job(job_url: str):
     print(f"URL: {job_data['url']}")
     print(f"\nDescription (first 500 chars):")
     print(job_data['description'][:500] + "..." if len(job_data['description']) > 500 else job_data['description'])
-
+    # print(job_data)
 
 def generate_cover_letter(args):
     """Generate cover letter based on command arguments."""

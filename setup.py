@@ -15,8 +15,8 @@ if (this_directory / "requirements.txt").exists():
 setup(
     name="cover-letter-generator",
     version="0.1.0",
-    author="Your Name",
-    author_email="your.email@example.com",
+    author="Iwan Li",
+    author_email="iwan.li@outlook.com",
     description="AI-powered cover letter generation from job postings",
     long_description=long_description,
     long_description_content_type="text/markdown",

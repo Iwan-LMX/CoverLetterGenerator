@@ -51,74 +51,263 @@ class WebScraper:
     
     def _extract_title(self, soup: BeautifulSoup) -> str:
         """Extract job title from the page."""
-        # Common selectors for job titles
+        # First check meta tags
+        meta_title = soup.select_one('meta[property="og:title"]')
+        if meta_title and meta_title.get('content'):
+            title = meta_title.get('content').strip()
+            if title and title != "Job":
+                return title
+        
+        # Extended selectors for job titles
         selectors = [
             'h1',
+            '[data-ui="job-title"]',
             '.job-title',
             '.jobsearch-JobInfoHeader-title',
             '[data-testid="job-title"]',
-            '.job-header-title'
+            '.job-header-title',
+            '.position-title',
+            '.job-name',
+            '.jobs-unified-top-card__job-title',
+            '.styles__JobTitle',
+            '[data-automation-id="jobTitle"]'
         ]
         
         for selector in selectors:
             element = soup.select_one(selector)
             if element:
-                return element.get_text(strip=True)
+                title = element.get_text(strip=True)
+                if title and len(title) > 2:  # Must be substantial
+                    return title
         
-        # Fallback to page title
+        # Check JSON-LD structured data
+        json_title = self._extract_title_from_json_ld(soup)
+        if json_title:
+            return json_title
+        
+        # Fallback to page title (clean it up)
         title_tag = soup.find('title')
         if title_tag:
-            return title_tag.get_text(strip=True)
+            title = title_tag.get_text(strip=True)
+            # Remove common suffixes
+            for suffix in [" - Jobs", " | Jobs", " - Careers", " | Careers", " - Apply Now"]:
+                title = title.replace(suffix, "")
+            return title
         
         return "Unknown Position"
     
     def _extract_company(self, soup: BeautifulSoup, url: str) -> str:
         """Extract company name from the page."""
-        # Common selectors for company names
+        # Extended selectors for company names
         selectors = [
+            '[data-ui="company-name"]',
             '.company-name',
             '.jobsearch-InlineCompanyRating-companyHeader',
             '[data-testid="company-name"]',
-            '.company'
+            '.company',
+            '.employer-name',
+            '.jobs-unified-top-card__company-name',
+            '.styles__CompanyName',
+            '[data-automation-id="companyName"]',
+            '.company-header__name',
+            'a[data-cy="company-name"]'
         ]
         
         for selector in selectors:
             element = soup.select_one(selector)
             if element:
-                return element.get_text(strip=True)
+                company = element.get_text(strip=True)
+                if company and len(company) > 1:
+                    return company
         
-        # Fallback to domain name
+        # Check JSON-LD structured data
+        json_company = self._extract_company_from_json_ld(soup)
+        if json_company:
+            return json_company
+        
+        # Check meta tags
+        meta_site = soup.select_one('meta[property="og:site_name"]')
+        if meta_site and meta_site.get('content'):
+            return meta_site.get('content').strip()
+        
+        # Fallback to domain name (improved)
         domain = urlparse(url).netloc
-        return domain.replace('www.', '').split('.')[0].title()
+        company_name = domain.replace('www.', '').split('.')[0]
+        
+        # Handle common job board domains
+        job_boards = {
+            'apply': 'Workable Application',
+            'workable': 'Workable',
+            'indeed': 'Indeed',
+            'linkedin': 'LinkedIn',
+            'glassdoor': 'Glassdoor',
+            'angellist': 'AngelList',
+            'jobs': 'Job Board'
+        }
+        
+        return job_boards.get(company_name.lower(), company_name.title())
     
     def _extract_description(self, soup: BeautifulSoup) -> str:
         """Extract job description from the page."""
+        # First, try to get description from meta tags (works for many JS-heavy sites)
+        meta_description = self._extract_meta_description(soup)
+        if meta_description and len(meta_description) > 100:  # Must be substantial
+            return self._clean_text(meta_description)
+        
         # Remove script and style elements
         for script in soup(["script", "style", "nav", "header", "footer"]):
             script.decompose()
         
-        # Common selectors for job descriptions
+        # Extended selectors for job descriptions (including Workable and other common sites)
         selectors = [
+            # Generic selectors
             '.job-description',
             '.jobsearch-jobDescriptionText',
             '[data-testid="job-description"]',
             '.description',
-            '.job-content'
+            '.job-content',
+            '.job-details',
+            '.position-description',
+            
+            # Workable specific
+            '[data-ui="job-description"]',
+            '.styles__JobDescription',
+            '.job-ad-description',
+            
+            # LinkedIn
+            '.show-more-less-html__markup',
+            '.jobs-description__content',
+            
+            # Indeed
+            '#jobDescriptionText',
+            '.jobsearch-jobDescriptionText',
+            
+            # Glassdoor
+            '.jobDescriptionContent',
+            
+            # AngelList/Wellfound
+            '.job-description-text',
+            
+            # Generic content areas
+            '[role="main"]',
+            '.main-content',
+            '.content',
+            'main',
+            'article'
         ]
         
         for selector in selectors:
             element = soup.select_one(selector)
             if element:
                 text = element.get_text(separator=' ', strip=True)
-                return self._clean_text(text)
+                cleaned_text = self._clean_text(text)
+                if len(cleaned_text) > 50:  # Must have substantial content
+                    return cleaned_text
         
-        # Fallback to body text
+        # If still no content, try to extract from JSON-LD structured data
+        json_ld_desc = self._extract_from_json_ld(soup)
+        if json_ld_desc:
+            return self._clean_text(json_ld_desc)
+        
+        # Final fallback: try to get meaningful content from body
         body = soup.find('body')
         if body:
-            text = body.get_text(separator=' ', strip=True)
-            return self._clean_text(text)[:2000]  # Limit length
+            # Look for any paragraphs or divs with substantial text
+            content_elements = body.find_all(['p', 'div'], string=True)
+            combined_text = ""
+            for elem in content_elements:
+                text = elem.get_text(strip=True)
+                if len(text) > 30:  # Only include substantial text blocks
+                    combined_text += text + " "
+            
+            if combined_text:
+                cleaned = self._clean_text(combined_text)
+                return cleaned[:2000] if len(cleaned) > 2000 else cleaned
         
-        return "Could not extract job description"
+        # If we still have nothing, return the meta description or a message
+        return meta_description if meta_description else "Could not extract job description. The page may require JavaScript to load content."
+    
+    def _extract_meta_description(self, soup: BeautifulSoup) -> str:
+        """Extract description from meta tags."""
+        meta_selectors = [
+            'meta[name="description"]',
+            'meta[property="og:description"]',
+            'meta[name="twitter:description"]'
+        ]
+        
+        for selector in meta_selectors:
+            meta = soup.select_one(selector)
+            if meta and meta.get('content'):
+                return meta.get('content')
+        
+        return ""
+    
+    def _extract_from_json_ld(self, soup: BeautifulSoup) -> str:
+        """Extract job description from JSON-LD structured data."""
+        scripts = soup.find_all('script', type='application/ld+json')
+        for script in scripts:
+            try:
+                import json
+                data = json.loads(script.string)
+                
+                # Handle both single objects and arrays
+                if isinstance(data, list):
+                    data = data[0] if data else {}
+                
+                # Look for JobPosting schema
+                if data.get('@type') == 'JobPosting':
+                    desc = data.get('description', '')
+                    if desc and len(desc) > 50:
+                        return desc
+                        
+            except (json.JSONDecodeError, AttributeError):
+                continue
+        
+        return ""
+    
+    def _extract_title_from_json_ld(self, soup: BeautifulSoup) -> str:
+        """Extract job title from JSON-LD structured data."""
+        scripts = soup.find_all('script', type='application/ld+json')
+        for script in scripts:
+            try:
+                import json
+                data = json.loads(script.string)
+                
+                if isinstance(data, list):
+                    data = data[0] if data else {}
+                
+                if data.get('@type') == 'JobPosting':
+                    title = data.get('title', '')
+                    if title:
+                        return title
+                        
+            except (json.JSONDecodeError, AttributeError):
+                continue
+        
+        return ""
+    
+    def _extract_company_from_json_ld(self, soup: BeautifulSoup) -> str:
+        """Extract company name from JSON-LD structured data."""
+        scripts = soup.find_all('script', type='application/ld+json')
+        for script in scripts:
+            try:
+                import json
+                data = json.loads(script.string)
+                
+                if isinstance(data, list):
+                    data = data[0] if data else {}
+                
+                if data.get('@type') == 'JobPosting':
+                    hiring_org = data.get('hiringOrganization', {})
+                    if isinstance(hiring_org, dict):
+                        name = hiring_org.get('name', '')
+                        if name:
+                            return name
+                        
+            except (json.JSONDecodeError, AttributeError):
+                continue
+        
+        return ""
     
     def _clean_text(self, text: str) -> str:
         """Clean extracted text."""

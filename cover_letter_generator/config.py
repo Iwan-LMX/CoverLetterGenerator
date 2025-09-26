@@ -1,16 +1,33 @@
 import os
 from pathlib import Path
 
-# Get package root directory
-PACKAGE_ROOT = Path(__file__).parent
-PROJECT_ROOT = PACKAGE_ROOT.parent
+# Try to load .env file
+try:
+    from dotenv import load_dotenv
+    # Get package root directory
+    PACKAGE_ROOT = Path(__file__).parent
+    PROJECT_ROOT = PACKAGE_ROOT.parent
+    
+    # Load .env file from project root
+    env_path = PROJECT_ROOT / ".env"
+    if env_path.exists():
+        load_dotenv(env_path)
+        print(f"✅ Loaded environment from {env_path}")
+    else:
+        # Try loading from current directory
+        load_dotenv()
+except ImportError:
+    # If python-dotenv is not installed, just use regular os.getenv
+    PACKAGE_ROOT = Path(__file__).parent
+    PROJECT_ROOT = PACKAGE_ROOT.parent
+    print("⚠️  python-dotenv not found. Please install it or set environment variables manually.")
 
 class Settings:
     """Configuration settings for the Cover Letter Generator."""
     
     # LLM Configuration
-    API_KEY = os.getenv("OPENAI_API_KEY", "your_api_key_here")
-    MODEL_NAME = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
+    API_KEY = os.getenv("API_KEY", "your_api_key_here")
+    MODEL_NAME = os.getenv("LLM_MODEL", "gpt-3.5-turbo")
     
     # File paths
     TEMPLATE_PATH = PROJECT_ROOT / "templates" / "cover_letter_template.txt"
