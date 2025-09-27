@@ -2,6 +2,7 @@
 
 An AI-powered tool that automatically generates professional cover letters from job posting URLs or job descriptions. This LLM agent uses OpenAI's GPT models to create personalized cover letters based on your resume and the specific job requirements.
 
+Here's a video might help you to quick start it https://www.youtube.com/watch?v=x40EMedih4g
 ## Features ✨
 
 - 🔗 **URL Scraping**: Extract job details directly from job posting URLs
