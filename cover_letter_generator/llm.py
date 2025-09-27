@@ -58,8 +58,34 @@ class LLMClient:
         """Initialize Google Gemini client."""
         try:
             import google.generativeai as genai
+            
+            # Configure with API key
             genai.configure(api_key=self.api_key)
-            self.client = genai.GenerativeModel(self.model)
+            
+            # Disable safety filters completely (like Cherry Studio likely does)
+            safety_config = [
+                {
+                    "category": "HARM_CATEGORY_HARASSMENT",
+                    "threshold": "BLOCK_NONE"
+                },
+                {
+                    "category": "HARM_CATEGORY_HATE_SPEECH", 
+                    "threshold": "BLOCK_NONE"
+                },
+                {
+                    "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                    "threshold": "BLOCK_NONE"
+                },
+                {
+                    "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+                    "threshold": "BLOCK_NONE"
+                }
+            ]
+            
+            self.client = genai.GenerativeModel(
+                model_name=self.model,
+                safety_settings=safety_config
+            )
         except ImportError:
             raise ImportError("Google Generative AI package required. Install with: pip install google-generativeai")
     
@@ -129,72 +155,57 @@ class LLMClient:
         return response.choices[0].message.content.strip()
     
     def _generate_google(self, prompt: str, max_tokens: int, temperature: float) -> str:
-        """Generate text using Google Gemini API."""
+        """Generate text using Google Gemini API (Cherry Studio compatible)."""
         import google.generativeai as genai
         
-        # Configure generation parameters
-        generation_config = genai.GenerationConfig(
-            max_output_tokens=max_tokens,
-            temperature=temperature,
-        )
-        
-        # Configure safety settings to be less restrictive for business content
-        safety_settings = [
-            {
-                "category": "HARM_CATEGORY_HARASSMENT",
-                "threshold": "BLOCK_MEDIUM_AND_ABOVE"
-            },
-            {
-                "category": "HARM_CATEGORY_HATE_SPEECH", 
-                "threshold": "BLOCK_MEDIUM_AND_ABOVE"
-            },
-            {
-                "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-                "threshold": "BLOCK_MEDIUM_AND_ABOVE"
-            },
-            {
-                "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
-                "threshold": "BLOCK_MEDIUM_AND_ABOVE"
-            }
-        ]
+        # Use simple configuration like Cherry Studio
+        generation_config = {
+            "max_output_tokens": max_tokens,
+            "temperature": temperature,
+            "top_p": 0.8,
+            "top_k": 40
+        }
         
         try:
+            # Use the simplest approach possible
             response = self.client.generate_content(
                 prompt,
-                generation_config=generation_config,
-                safety_settings=safety_settings
+                generation_config=generation_config
             )
             
-            # Check if response was blocked
-            if response.candidates:
-                candidate = response.candidates[0]
-                if candidate.finish_reason == 2:  # SAFETY
-                    raise Exception("Content was blocked by safety filters. Try rephrasing your request or use a different model.")
-                elif candidate.finish_reason == 3:  # RECITATION
-                    raise Exception("Content was blocked due to recitation. Try using more original content.")
-                elif candidate.finish_reason == 4:  # OTHER
-                    raise Exception("Content generation failed for unknown reasons.")
-            
-            # Check if we have valid text
-            if hasattr(response, 'text') and response.text:
+            # Simple response handling - if there's text, return it
+            # print("DEBUG: ", response)
+            if response and response.text:
                 return response.text.strip()
-            else:
-                # Try to extract text from parts if direct text access fails
-                if response.candidates and response.candidates[0].content.parts:
-                    parts_text = ""
-                    for part in response.candidates[0].content.parts:
-                        if hasattr(part, 'text'):
-                            parts_text += part.text
-                    if parts_text:
-                        return parts_text.strip()
+            
+            # If no direct text, try to extract from parts
+            if response.candidates and len(response.candidates) > 0:
+                candidate = response.candidates[0]
                 
-                raise Exception("No text content was generated. The response may have been filtered.")
+                # Check for content in parts
+                if candidate.content and candidate.content.parts:
+                    text_parts = []
+                    for part in candidate.content.parts:
+                        if hasattr(part, 'text') and part.text:
+                            text_parts.append(part.text)
+                    
+                    if text_parts:
+                        return " ".join(text_parts).strip()
+                
+                # Provide more specific error based on finish_reason
+                finish_reason = getattr(candidate, 'finish_reason', None)
+                if finish_reason == 2:
+                    raise Exception("Content blocked by safety filter. Gemini flagged the content as potentially unsafe.")
+                elif finish_reason == 3:
+                    raise Exception("Content blocked due to recitation detection.")
+                elif finish_reason == 4:
+                    raise Exception("Generation stopped due to other reasons.")
+                
+            raise Exception("No content generated - empty response from Gemini.")
                 
         except Exception as e:
-            if "safety" in str(e).lower() or "blocked" in str(e).lower():
-                raise Exception("Content was filtered by Gemini's safety system. Try rephrasing your request to be more neutral, or consider using a different LLM model.")
-            else:
-                raise e
+            # Re-raise with original error message for better debugging
+            raise e
     
     def _generate_anthropic(self, prompt: str, max_tokens: int, temperature: float) -> str:
         """Generate text using Anthropic Claude API."""
@@ -219,25 +230,50 @@ class LLMClient:
         Returns:
             Generated cover letter
         """
-        # Create a safer, more structured prompt for Gemini
-        prompt = f"""Write a professional business cover letter.
+        # Load the template
+        from .tools import FileHandler
+        try:
+            template = FileHandler.read_template()
+        except:
+            # Fallback template if file doesn't exist
+            template = """Dear Hiring Manager,
 
-Company Name: {company_name or 'the organization'}
-Job Title: {position_title or 'the position'}
+I am writing to express my strong interest in the {position} position at {company}. With my background in {relevant_experience}, I am excited about the opportunity to contribute to your team.
 
-Requirements from Job Description:
-{job_description[:1500]}
+{body_paragraph_1}
 
-Candidate Background:
-{resume_info[:1500]}
+{body_paragraph_2}
 
-Format the cover letter with:
-- Professional greeting
-- Opening paragraph expressing interest
-- 2-3 body paragraphs highlighting relevant qualifications
-- Professional closing
-- Appropriate business letter structure
+Thank you for considering my application. I look forward to discussing how my skills and experience can benefit your organization.
 
-Please write a concise, professional cover letter (300-500 words)."""
+Sincerely,
+[Your Name]"""
         
-        return self.generate_text(prompt, max_tokens=800, temperature=0.7)
+        # Create a comprehensive but safe prompt that includes actual resume and job data
+        prompt = f"""You are a professional cover letter writer. Please create a personalized cover letter using the template and information provided.
+
+TEMPLATE TO FOLLOW:
+{template}
+
+COMPANY: {company_name or 'the organization'}
+POSITION: {position_title or 'the position'}
+
+JOB REQUIREMENTS (first 2000 chars):
+{job_description[:2000]}
+
+CANDIDATE BACKGROUND (first 800 chars):
+{resume_info[:800]}
+
+INSTRUCTIONS:
+1. Follow the template structure exactly
+2. Replace {{position}} with the actual position title
+3. Replace {{company}} with the company name  
+4. Replace {{relevant_experience}} with specific skills from the candidate's background that match the job
+5. Write {{body_paragraph_1}} highlighting the candidate's most relevant experience for this specific job
+6. Write {{body_paragraph_2}} showing enthusiasm and knowledge about the company/role
+7. Keep it professional and concise
+8. Use specific examples from the candidate's background when possible
+
+Please write the complete cover letter now:"""
+        
+        return self.generate_text(prompt, max_tokens=3000, temperature=0.7)
