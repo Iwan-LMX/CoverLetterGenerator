@@ -52,18 +52,23 @@ class CoverLetterAgent:
             position_title=job_data['title']
         )
         
-        # Step 3: Save the cover letter
-        output_path = self.file_handler.save_cover_letter(
+        # Step 3: Save the cover letter (both PDF and TXT)
+        output_paths = self.file_handler.save_cover_letter(
             content=cover_letter,
-            filename=output_filename
+            filename=output_filename,
+            company_name=job_data['company'],
+            position_title=job_data['title']
         )
         
-        print(f"💾 Cover letter saved to: {output_path}")
+        print(f"💾 Cover letter saved to:")
+        print(f"   📄 Text: {output_paths['txt']}")
+        print(f"   📋 PDF:  {output_paths['pdf']}")
+        print(f"   📁 Folder: {output_paths['folder']}")
         
         return {
             'job_data': job_data,
             'cover_letter': cover_letter,
-            'output_path': str(output_path),
+            'output_paths': output_paths,
             'success': True
         }
     
@@ -92,13 +97,18 @@ class CoverLetterAgent:
             position_title=position_title
         )
         
-        # Save the cover letter
-        output_path = self.file_handler.save_cover_letter(
+        # Save the cover letter (both PDF and TXT)
+        output_paths = self.file_handler.save_cover_letter(
             content=cover_letter,
-            filename=output_filename
+            filename=output_filename,
+            company_name=company_name,
+            position_title=position_title
         )
         
-        print(f"💾 Cover letter saved to: {output_path}")
+        print(f"💾 Cover letter saved to:")
+        print(f"   📄 Text: {output_paths['txt']}")
+        print(f"   📋 PDF:  {output_paths['pdf']}")
+        print(f"   📁 Folder: {output_paths['folder']}")
         
         return {
             'job_data': {
@@ -108,7 +118,7 @@ class CoverLetterAgent:
                 'url': None
             },
             'cover_letter': cover_letter,
-            'output_path': str(output_path),
+            'output_paths': output_paths,
             'success': True
         }
     

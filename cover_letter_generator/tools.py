@@ -340,27 +340,55 @@ class FileHandler:
         return path.read_text(encoding='utf-8')
     
     @staticmethod
-    def save_cover_letter(content: str, filename: Optional[str] = None) -> Path:
-        """Save the generated cover letter to a file.
+    def save_cover_letter(content: str, filename: Optional[str] = None, 
+                         company_name: Optional[str] = None, 
+                         position_title: Optional[str] = None) -> Dict[str, Path]:
+        """Save the generated cover letter to both PDF and TEXT files in a dedicated subfolder.
         
         Args:
             content: Cover letter content
-            filename: Output filename. If None, generates timestamp-based name.
+            filename: Base filename without extension. If None, generates timestamp-based name.
+            company_name: Company name for folder organization (optional)
+            position_title: Position title for folder organization (optional)
             
         Returns:
-            Path to the saved file
+            Dictionary with 'txt' and 'pdf' paths to the saved files
         """
-        output_dir = Settings.ensure_output_dir()
+        from datetime import datetime
         
+        # Generate base filename if not provided
         if filename is None:
-            from datetime import datetime
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"cover_letter_{timestamp}.txt"
+            if company_name and position_title:
+                # Create a clean filename from company and position
+                clean_company = FileHandler._clean_filename(company_name)
+                clean_position = FileHandler._clean_filename(position_title)
+                filename = f"cover_letter_{clean_company}_{clean_position}_{timestamp}"
+            else:
+                filename = f"cover_letter_{timestamp}"
+        else:
+            # Remove extension if provided
+            filename = Path(filename).stem
         
-        output_path = output_dir / filename
-        output_path.write_text(content, encoding='utf-8')
+        # Create subfolder for this cover letter
+        output_base_dir = Settings.ensure_output_dir()
+        subfolder_name = f"{filename}"
+        output_dir = output_base_dir / subfolder_name
+        output_dir.mkdir(exist_ok=True)
         
-        return output_path
+        # Save TEXT file
+        txt_path = output_dir / f"{filename}.txt"
+        txt_path.write_text(content, encoding='utf-8')
+        
+        # Save PDF file
+        pdf_path = output_dir / f"{filename}.pdf"
+        FileHandler._save_as_pdf(content, pdf_path)
+        
+        return {
+            'txt': txt_path,
+            'pdf': pdf_path,
+            'folder': output_dir
+        }
     
     @staticmethod
     def create_default_template(template_path: Path):
@@ -380,6 +408,166 @@ Sincerely,
         
         template_path.parent.mkdir(parents=True, exist_ok=True)
         template_path.write_text(default_template, encoding='utf-8')
+    
+    @staticmethod
+    def _clean_filename(text: str) -> str:
+        """Clean text for use as filename.
+        
+        Args:
+            text: Text to clean
+            
+        Returns:
+            Cleaned filename-safe string
+        """
+        # Remove or replace invalid filename characters
+        cleaned = re.sub(r'[<>:"/\\|?*]', '', text)
+        # Replace spaces and special chars with underscores
+        cleaned = re.sub(r'[\s\-\.\,\(\)]+', '_', cleaned)
+        # Remove multiple underscores
+        cleaned = re.sub(r'_+', '_', cleaned)
+        # Trim underscores and limit length
+        cleaned = cleaned.strip('_')[:50]
+        
+        return cleaned if cleaned else 'unnamed'
+    
+    @staticmethod
+    def _save_as_pdf(content: str, pdf_path: Path):
+        """Save content as PDF file.
+        
+        Args:
+            content: Text content to save as PDF
+            pdf_path: Path where to save the PDF file
+        """
+        try:
+            # Try using reportlab (preferred method)
+            from reportlab.lib.pagesizes import letter
+            from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+            from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+            from reportlab.lib.units import inch
+            
+            # Create PDF document
+            doc = SimpleDocTemplate(str(pdf_path), pagesize=letter,
+                                  rightMargin=72, leftMargin=72,
+                                  topMargin=72, bottomMargin=18)
+            
+            # Get styles
+            styles = getSampleStyleSheet()
+            
+            # Create custom style for cover letter
+            cover_letter_style = ParagraphStyle(
+                'CoverLetter',
+                parent=styles['Normal'],
+                fontSize=11,
+                spaceAfter=12,
+                leading=14
+            )
+            
+            # Split content into paragraphs and create flowables
+            story = []
+            paragraphs = content.split('\n\n')
+            
+            for para in paragraphs:
+                if para.strip():
+                    # Clean paragraph text for reportlab
+                    clean_para = para.strip().replace('\n', '<br/>')
+                    story.append(Paragraph(clean_para, cover_letter_style))
+                    story.append(Spacer(1, 6))
+            
+            # Build PDF
+            doc.build(story)
+            
+        except ImportError:
+            # Fallback: try using weasyprint
+            try:
+                import weasyprint
+                
+                # Create HTML content
+                # Process content outside f-string to avoid backslash issues
+                processed_content = '<p>' + content.replace('\n\n', '</p><p>').replace('\n', '<br>') + '</p>'
+                
+                html_content = f"""
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <style>
+                        body {{
+                            font-family: 'Times New Roman', Times, serif;
+                            font-size: 11pt;
+                            line-height: 1.4;
+                            margin: 1in;
+                            max-width: 8.5in;
+                        }}
+                        p {{
+                            margin-bottom: 12pt;
+                        }}
+                    </style>
+                </head>
+                <body>
+                    {processed_content}
+                </body>
+                </html>
+                """
+                
+                weasyprint.HTML(string=html_content).write_pdf(str(pdf_path))
+                
+            except ImportError:
+                # Final fallback: use fpdf (simpler but available)
+                try:
+                    from fpdf import FPDF
+                    
+                    pdf = FPDF()
+                    pdf.add_page()
+                    pdf.set_font('Times', size=11)
+                    
+                    # Add content line by line
+                    lines = content.split('\n')
+                    for line in lines:
+                        if line.strip():
+                            # Handle long lines by wrapping
+                            words = line.split(' ')
+                            current_line = ''
+                            for word in words:
+                                test_line = current_line + (' ' if current_line else '') + word
+                                # Approximate character limit per line
+                                if len(test_line) <= 80:
+                                    current_line = test_line
+                                else:
+                                    if current_line:
+                                        pdf.cell(0, 6, current_line.encode('latin-1', 'replace').decode('latin-1'), ln=True)
+                                    current_line = word
+                            
+                            if current_line:
+                                pdf.cell(0, 6, current_line.encode('latin-1', 'replace').decode('latin-1'), ln=True)
+                        else:
+                            pdf.ln(6)  # Empty line
+                    
+                    pdf.output(str(pdf_path))
+                    
+                except ImportError:
+                    # If no PDF library is available, create a simple text file with PDF extension
+                    # and add a note about PDF generation
+                    fallback_content = f"""# Cover Letter (PDF generation failed - install reportlab, weasyprint, or fpdf2)
+
+{content}
+
+---
+Note: To generate proper PDF files, install one of these packages:
+- pip install reportlab (recommended)
+- pip install weasyprint
+- pip install fpdf2
+"""
+                    pdf_path.write_text(fallback_content, encoding='utf-8')
+                    print(f"⚠️  PDF libraries not available. Created text file with PDF extension at {pdf_path}")
+                    
+        except Exception as e:
+            # If PDF generation fails, create a fallback text file
+            fallback_content = f"""# Cover Letter (PDF generation error: {str(e)})
+
+{content}
+"""
+            pdf_path.write_text(fallback_content, encoding='utf-8')
+            print(f"⚠️  PDF generation failed: {e}. Created text fallback at {pdf_path}")
     
     @staticmethod
     def parse_resume_file(file_path: Path) -> str:

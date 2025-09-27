@@ -249,6 +249,11 @@ Thank you for considering my application. I look forward to discussing how my sk
 Sincerely,
 [Your Name]"""
         
+        # Extract candidate name from resume and replace [Your Name] in template
+        candidate_name = self._extract_candidate_name(resume_info)
+        if candidate_name:
+            template = template.replace("[Your Name]", candidate_name)
+        
         # Create a comprehensive but safe prompt that includes actual resume and job data
         prompt = f"""You are a professional cover letter writer. Please create a personalized cover letter using the template and information provided.
 
@@ -271,9 +276,66 @@ INSTRUCTIONS:
 4. Replace {{relevant_experience}} with specific skills from the candidate's background that match the job
 5. Write {{body_paragraph_1}} highlighting the candidate's most relevant experience for this specific job
 6. Write {{body_paragraph_2}} showing enthusiasm and knowledge about the company/role
-7. Keep it professional and concise
-8. Use specific examples from the candidate's background when possible
+7. Replace [Your Name] with the candidate's actual name from their resume/background
+8. Keep it professional and concise
+9. Use specific examples from the candidate's background when possible
 
 Please write the complete cover letter now:"""
         
         return self.generate_text(prompt, max_tokens=3000, temperature=0.7)
+    
+    def _extract_candidate_name(self, resume_info: str) -> str:
+        """Extract candidate name from resume text.
+        
+        Args:
+            resume_info: Resume text content
+            
+        Returns:
+            Extracted name or empty string if not found
+        """
+        import re
+        
+        # Get the first few lines where names are usually located
+        first_lines = resume_info.split('\n')[:5]
+        first_text = ' '.join(first_lines)
+        
+        # Pattern 1: Look for common name patterns at the beginning
+        # Names are usually at the very beginning, often standalone
+        patterns = [
+            # Full name at start of line (most common)
+            r'^([A-Z][a-z]+ [A-Z][a-z]+)',
+            # Name followed by contact info
+            r'^([A-Z][a-z]+ [A-Z][a-z]+)\s*(?:[\s\|\-]|\n)',
+            # Handle names with middle names/initials  
+            r'^([A-Z][a-z]+ [A-Z]\.?\s*[A-Z][a-z]+)',
+            # Chinese/International names (like "Mingxin Li")
+            r'^([A-Z][a-z]+ [A-Z][a-z]+)',
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, first_text.strip(), re.MULTILINE)
+            if match:
+                name = match.group(1).strip()
+                # Validate that it looks like a real name (2-4 words, reasonable length)
+                words = name.split()
+                if 2 <= len(words) <= 4 and all(len(word) >= 2 for word in words):
+                    return name
+        
+        # Pattern 2: Look for names in typical resume headers  
+        # Sometimes names appear after titles or in specific formats
+        for line in first_lines:
+            line = line.strip()
+            if line and len(line.split()) >= 2:
+                # Skip lines that look like titles, emails, phones, etc.
+                if any(skip_word in line.lower() for skip_word in 
+                       ['email', 'phone', 'address', '@', 'http', 'www', '+', 'tel:', 'mobile']):
+                    continue
+                
+                # Check if line starts with capitalized words (likely a name)
+                words = line.split()
+                if (len(words) >= 2 and 
+                    all(word[0].isupper() and word[1:].islower() for word in words[:2]) and
+                    all(len(word) >= 2 for word in words[:2])):
+                    return ' '.join(words[:2])
+        
+        return ""  # Return empty string if no name found

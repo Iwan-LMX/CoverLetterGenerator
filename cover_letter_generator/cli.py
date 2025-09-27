@@ -116,10 +116,7 @@ def generate_cover_letter(args):
             output_filename=args.output
         )
     
-    print(f"\n📄 Generated cover letter for: {result['job_data']['title']}")
-    print(f"Company: {result['job_data']['company']}")
-    print(f"Saved to: {result['output_path']}")
-    
+    # The output paths are already printed by the agent, no need to duplicate
     # Show preview
     print(f"\n📝 Preview (first 300 characters):")
     print(result['cover_letter'][:300] + "...")
